@@ -1,0 +1,121 @@
+#!/bin/bash
+#
+# timber-agent  Starts and stops the Timber agent as a daemonized service
+#
+# chkconfig: 345 40 90
+# description: Starts and stops the Timber agent as a daemonized service \
+#              to read and upload log files to the Timber hosted service. \
+#              Configuration of the Timber agent is stored in the file \
+#              /etc/timber.toml.
+
+### BEGIN INIT INFO
+# Provides:               timber-agent
+# Required-Start:         $network $local_fs $remote_fs
+# Required-Stop:          $network $local_fs $remote_fs
+# Should-Start:           $named $time
+# Should-Stop:            $named $time
+# Default-Start:          3 4 5
+# Default-Stop:           0 1 2 6
+# Short-Description:      Starts and stops the Timber agent as a daemonized service
+# Description:            Starts and stops the Timber agent as a daemonized service
+#                         to read and upload log files to the Timber hosted service.
+#                         Configuration of the Timber agent is stored in the file
+#                         /etc/timber.toml.
+### END INIT INFO
+
+. /etc/init.d/functions
+
+prog="timber-agent"
+exec=/opt/timber-agent/bin/timber-agent
+pidfile=/var/run/$prog.pid
+
+get_pid() {
+  cat "$pidfile"
+}
+
+is_service_running() {
+  pid=$(get_pid)
+  [ -e "/proc/$pid" ]
+}
+
+start() {
+  [ -x $exec ] || exit 5
+  echo -n $"Starting $prog: "
+  daemonize -p $pidfile $exec
+  return $?
+}
+
+stop() {
+  echo -n $"Stopping $prog: "
+  kill -TERM "$(get_pid)"
+  retval=$?
+  sleep 10
+  if is_service_running; then
+    # Service did not shut down within 10 seconds;
+    # forcibly kill it
+    echo $"Forcibly stopping $prog: "
+    kill -KILL "$(get_pid)"
+    retval=$?
+  fi
+  echo
+  [ $retval -eq 0 ] && rm -f $pidfile
+  return $retval
+}
+
+restart() {
+  stop
+  start
+}
+
+reload() {
+  restart
+}
+
+force_reload() {
+  restart
+}
+
+status() {
+  is_service_running
+}
+
+rh_status_q() {
+  status >/dev/null 2>&1
+}
+
+case "$1" in
+  start)
+    rh_status_q && exit 0
+    $1
+    ;;
+  stop)
+    rh_status_q && exit 0
+    $1
+    ;;
+  restart)
+    $1
+    ;;
+  reload)
+    rh_status_q || exit 7
+    $1
+    ;;
+  force-reload)
+    force_reload
+    ;;
+  status)
+    if status; then
+      echo "$prog is running"
+    else
+      echo "$prog is not running"
+    fi
+    ;;
+  condrestart|try-restart)
+    rh_status_q || exit 0
+    restart
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+    exit 2
+    ;;
+esac
+exit $?
