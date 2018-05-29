@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 
 	"gopkg.in/urfave/cli.v1"
@@ -303,9 +304,17 @@ func runCaptureKube(ctx *cli.Context) error {
 	config := NewConfig()
 	config.KubernetesConfig = NewKubernetesConfig()
 
+	// Read hostname from /etc/hostname
+	hostname, err := ioutil.ReadFile("/etc/hostname")
+	if err != nil {
+		logger.Warnf("Unable to read hostname from /etc/hostname. Falling back to os_hostanme")
+	} else {
+		config.Hostname = string(hostname)
+	}
+
 	// Update the configuration from a file. This is not required for STDIN mode.
 	configFilePath := ctx.String("config")
-	err := config.UpdateFromFile(configFilePath)
+	err = config.UpdateFromFile(configFilePath)
 	if err != nil {
 		logger.Warnf("Could not open config file at %s: %s", configFilePath, err)
 		logger.Info("Config file not required in Kubernetes mode")
